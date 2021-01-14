@@ -11,8 +11,10 @@ import os
 import re
 from sklearn.model_selection import train_test_split
 
+from keras import backend as K
 import tensorflow as tf
-from tensorflow.keras.layers import Input, LSTM, Embedding, Dense, Concatenate, TimeDistributed
+from tensorflow.keras.layers import Input, LSTM, Bidirectional, Concatenate, \
+                                    Embedding, Dense, Concatenate, TimeDistributed
 from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import EarlyStopping
 
@@ -40,29 +42,28 @@ data_val = del_short_summary(data_val, 'summary')
 
 data_train = pd.concat([data_train, data_val])
 #%%
-'''Check distribution'''
-words_dist(data_train, 'fullText', 'summary')
-words_dist(data_test, 'fullText', 'summary')
-words_dist(data_val, 'fullText', 'summary')
-
-#%%
 # Text cleaning both full text and summary
-data_ = frame_clean(data_train, 'fullText', 'summary')
+data_train_ = frame_clean(data_train, 'fullText', 'summary')
+data_test_ = frame_clean(data_test, 'fullText', 'summary')
+#%%
+'''Check distribution'''
+# words_dist(data_train_, 'cleaned_text', 'cleaned_summary')
+# words_dist(data_test_, 'cleaned_text', 'cleaned_summary')
 
 #%%
 # Define maximum text length and summary length for training
-MAX_TEXT_LENGTH = 170
-MAX_SUMMARY_LENGTH = 20
+MAX_TEXT_LENGTH = 200
+MAX_SUMMARY_LENGTH = 14
 
-data_ = filter_data_length(data_train, 'cleaned_text', 'cleaned_summary', 
+data_ = filter_data_length(data_train_, 'cleaned_text', 'cleaned_summary', 
                                 MAX_TEXT_LENGTH, MAX_SUMMARY_LENGTH)
 
 # Marking sos and eos for summary sentence
-data_= mark_sentence(data_train, 'cleaned_summary')
+data_= mark_sentence(data_, 'cleaned_summary')
 #%%
 df = data_.copy()
-x_tr,x_val,y_tr,y_val=train_test_split(np.array(data_['cleaned_text']),
-                                       np.array(data_['cleaned_summary']),
+x_tr,x_val,y_tr,y_val=train_test_split(np.array(df['cleaned_text']),
+                                       np.array(df['cleaned_summary']),
                                        test_size=0.2,
                                        random_state=42,
                                        shuffle=True)
@@ -87,7 +88,7 @@ x_tokenizer = Tokenizer(filters = token_filter)
 x_tokenizer.fit_on_texts(list(x_tr))
 #%%
 # # Rarewords and its Coverage
-x_count, x_totalCount, x_freq, x_totalFreq = rare_words_cover(x_tokenizer, threshold = 5)
+x_count, x_totalCount, x_freq, x_totalFreq = rare_words_cover(x_tokenizer, threshold = 4)
 
 #%%
 #prepare a tokenizer for reviews on training data
@@ -105,7 +106,6 @@ x_val   =   pad_sequences(x_val_seq, maxlen=MAX_TEXT_LENGTH, padding='post')
 
 #size of vocabulary ( +1 for padding token)
 x_voc   =  x_tokenizer.num_words + 1
-
 
 #%%
 # # Summary Tokenizer
@@ -138,55 +138,18 @@ y_val   =   pad_sequences(y_val_seq, maxlen=MAX_SUMMARY_LENGTH, padding='post')
 #size of vocabulary
 y_voc  =   y_tokenizer.num_words +1
 
-
+#%%
 # Let us check whether word count of start token is equal to length of the training data
+y_tokenizer.word_counts['sossonnm'], len(y_tr) 
 
-# In[38]:
-y_tokenizer.word_counts['<sos> '],len(y_tr)   
-
-
-# In[39]:
-y_tr
-
-
-# In[40]:
-y_tokenizer.__dict__
-
-
+#%%
 # Here, I am deleting the rows that contain only **START** and **END** tokens
 
-# In[41]:
+y_tr, x_tr = del_if_markOnly(y_tr, x_tr)
 
+y_val, x_val = del_if_markOnly(y_val, x_val)
 
-ind=[]
-for i in range(len(y_tr)):
-    cnt=0
-    for j in y_tr[i]:
-        if j!=0:
-            cnt=cnt+1
-    if(cnt==2):
-        ind.append(i)
-
-y_tr=np.delete(y_tr,ind, axis=0)
-x_tr=np.delete(x_tr,ind, axis=0)
-
-
-# In[42]:
-
-
-ind=[]
-for i in range(len(y_val)):
-    cnt=0
-    for j in y_val[i]:
-        if j!=0:
-            cnt=cnt+1
-    if(cnt==2):
-        ind.append(i)
-
-y_val=np.delete(y_val,ind, axis=0)
-x_val=np.delete(x_val,ind, axis=0)
-
-
+#%%
 # # Model building
 # 
 # We are finally at the model building part. But before we do that, we need to familiarize ourselves with a few terms which are required prior to building the model.
@@ -202,43 +165,49 @@ x_val=np.delete(x_val,ind, axis=0)
 # 
 # Here, we are building a 3 stacked LSTM for the encoder:
 
-# In[71]:
 
-from keras import backend as K
-# from tensorflow.keras.layers import Attention
-# from Attention import *
 K.clear_session()
 
 latent_dim = 340
 embedding_dim = 100
 
 # Encoder
-encoder_inputs = Input(shape=(max_text_len,))
+encoder_inputs = Input(shape=(MAX_TEXT_LENGTH,))
 
 #embedding layer
 enc_emb =  Embedding(x_voc, embedding_dim, trainable=True)(encoder_inputs)
 
 #encoder lstm 1
-encoder_lstm1 = LSTM(latent_dim,return_sequences=True,return_state=True,dropout=0.4,recurrent_dropout=0)
-encoder_output1, state_h1, state_c1 = encoder_lstm1(enc_emb)
+encoder_lstm1 = Bidirectional(LSTM(latent_dim,return_sequences=True,
+                                    return_state=True,dropout=0.4,recurrent_dropout=0))
+
+encoder_output1, state_h1_f, state_c1_f, state_h1_b, state_c1_b = encoder_lstm1(enc_emb)
 
 #encoder lstm 2
-encoder_lstm2 = LSTM(latent_dim,return_sequences=True,return_state=True,dropout=0.4,recurrent_dropout=0)
-encoder_output2, state_h2, state_c2 = encoder_lstm2(encoder_output1)
+encoder_lstm2 = Bidirectional(LSTM(latent_dim,return_sequences=True,
+                                   return_state=True,dropout=0.4,recurrent_dropout=0))
+encoder_output2, state_h2_f, state_c2_f, state_h2_b, state_c2_b = encoder_lstm2(encoder_output1)
 
 #encoder lstm 3
-encoder_lstm3=LSTM(latent_dim, return_state=True, return_sequences=True,dropout=0.4,recurrent_dropout=0)
-encoder_outputs, state_h, state_c= encoder_lstm3(encoder_output2)
+encoder_lstm3 = Bidirectional(LSTM(latent_dim,return_sequences=True,
+                                   return_state=True,dropout=0.4,recurrent_dropout=0))
+encoder_outputs, state_h_f, state_c_f, state_h_b, state_c_b = encoder_lstm3(encoder_output2)
+
+state_h = Concatenate()([state_h_f, state_h_b])
+state_c = Concatenate()([state_c_f, state_c_b])
+encoder_states = [state_h, state_c]
 
 # Set up the decoder, using `encoder_states` as initial state.
 decoder_inputs = Input(shape=(None,))
 
 #embedding layer
-dec_emb_layer = Embedding(y_voc, embedding_dim,trainable=True)
+dec_emb_layer = Embedding(y_voc, embedding_dim, trainable=True)
 dec_emb = dec_emb_layer(decoder_inputs)
 
-decoder_lstm = LSTM(latent_dim, return_sequences=True, return_state=True,dropout=0.4,recurrent_dropout=0)
-decoder_outputs,decoder_fwd_state, decoder_back_state = decoder_lstm(dec_emb,initial_state=[state_h, state_c])
+decoder_lstm = LSTM(latent_dim,return_sequences=True,
+                                   return_state=True,dropout=0.4,recurrent_dropout=0)
+
+decoder_outputs, decoder_fwd_state, decoder_back_state = decoder_lstm(dec_emb, initial_state = encoder_states)
 
 # Attention layer
 attn_layer = AttentionLayer(name='attention_layer')
@@ -256,28 +225,10 @@ model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
 
 model.summary() 
 
-
-# I am using sparse categorical cross-entropy as the loss function since it converts the integer sequence to a one-hot vector on the fly. This overcomes any memory issues.
-
-# In[72]:
-
-
 model.compile(optimizer='rmsprop', loss='sparse_categorical_crossentropy')
 
 
-# Remember the concept of early stopping? It is used to stop training the neural network at the right time by monitoring a user-specified metric. Here, I am monitoring the validation loss (val_loss). Our model will stop training once the validation loss increases:
-# 
-
-# In[73]:
-
-
 es = EarlyStopping(monitor='val_loss', mode='min', verbose=1,patience=2)
-
-
-# We’ll train the model on a batch size of 128 and validate it on the holdout set (which is 10% of our dataset):
-
-# In[74]:
-
 
 history=model.fit([x_tr,y_tr[:,:-1]], 
                   y_tr.reshape(y_tr.shape[0],
@@ -330,7 +281,7 @@ encoder_model = Model(inputs=encoder_inputs,outputs=[encoder_outputs, state_h, s
 # Below tensors will hold the states of the previous time step
 decoder_state_input_h = Input(shape=(latent_dim,))
 decoder_state_input_c = Input(shape=(latent_dim,))
-decoder_hidden_state_input = Input(shape=(max_text_len,latent_dim))
+decoder_hidden_state_input = Input(shape=(max_text_len, latent_dim))
 
 # Get the embeddings of the decoder sequence
 dec_emb2= dec_emb_layer(decoder_inputs) 
@@ -392,7 +343,8 @@ def decode_sequence(input_seq):
     return decoded_sentence
 
 
-# Let us define the functions to convert an integer sequence to a word sequence for summary as well as the reviews:
+# Let us define the functions to convert an integer sequence to a word sequence 
+# for summary as well as the reviews:
 
 # In[ ]:
 
