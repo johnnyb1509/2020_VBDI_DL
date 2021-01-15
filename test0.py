@@ -26,10 +26,10 @@ from src.utils_dl_proj.utils_ import *
 # warnings.filterwarnings("ignore")
 
 #%%
-# '''GPU Growth = True'''
-# gpus = tf.config.experimental.list_physical_devices('GPU')
-# for gpu in gpus:
-#   tf.config.experimental.set_memory_growth(gpu, True)
+'''GPU Growth = True'''
+gpus = tf.config.experimental.list_physical_devices('GPU')
+for gpu in gpus:
+    tf.config.experimental.set_memory_growth(gpu, True)
 
 #%%
 data_train = pd.read_csv('./data/train.csv', usecols=['summary', 'fullText'])
@@ -204,7 +204,7 @@ decoder_inputs = Input(shape=(None,))
 dec_emb_layer = Embedding(y_voc, embedding_dim, trainable=True)
 dec_emb = dec_emb_layer(decoder_inputs)
 
-decoder_lstm = LSTM(latent_dim,return_sequences=True,
+decoder_lstm = LSTM(latent_dim*2,return_sequences=True,
                                    return_state=True,dropout=0.4,recurrent_dropout=0)
 
 decoder_outputs, decoder_fwd_state, decoder_back_state = decoder_lstm(dec_emb, initial_state = encoder_states)

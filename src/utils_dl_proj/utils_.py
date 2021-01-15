@@ -143,7 +143,8 @@ def filter_data_length(df_raw, cleaned_text_col, cleaned_summary_col,
             short_text.append(cleaned_text[i])
             short_summary.append(cleaned_summary[i])
 
-    df=pd.DataFrame({'Raw_Text':short_text,'Summary':short_summary})
+    df=pd.DataFrame({cleaned_text_col:short_text,
+                     cleaned_summary_col:short_summary})
     return df
 
 def mark_sentence(df, summary_col):
@@ -165,7 +166,7 @@ def mark_sentence(df, summary_col):
         DESCRIPTION. Frame with summary data marked <sos> .... <eos>
 
     """
-    df[summary_col] = df[summary_col].apply(lambda x : '<sos> '+ x + ' <eos>')
+    df[summary_col] = df[summary_col].apply(lambda x : 'sossonnm '+ x + ' eossonnm')
     return df
 
 def percent_count(df, column_name):
@@ -229,3 +230,35 @@ def rare_words_cover(factor_tokenized, threshold = 4):
     print("% of rare words in vocabulary:",(cnt/tot_cnt)*100)
     print("Total Coverage of rare words:",(freq/tot_freq)*100)
     return cnt, tot_cnt, freq, tot_freq
+
+def del_if_markOnly(seq_matrix_target, seq_matrix_features):
+    """
+    Function for deleting the summary that has only mark 'sos' and 'eos'
+
+    Parameters
+    ----------
+    seq_matrix_target : TYPE matrix
+        DESCRIPTION. matrix of target that has been tokenized and padded
+    seq_matrix_features : TYPE matrix
+        DESCRIPTION. matrix of features that has been tokenized and padded
+
+    Returns
+    -------
+    seq_matrix_target : TYPE
+        DESCRIPTION.
+    seq_matrix_features : TYPE
+        DESCRIPTION.
+
+    """
+    idx=[]
+    for i in range(len(seq_matrix_target)):
+        count=0
+        for j in seq_matrix_target[i]:
+            if j!=0:
+                count=count+1
+        if(count==2):
+            idx.append(i)
+    
+    seq_matrix_target = np.delete(seq_matrix_target, idx, axis=0)
+    seq_matrix_features = np.delete(seq_matrix_features, idx, axis=0)
+    return seq_matrix_target, seq_matrix_features
