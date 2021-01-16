@@ -4,6 +4,7 @@ Created on Tue Jan  5 11:56:34 2021
 
 @author: NguyenSon
 """
+
 from attention_keras.src.layers.attention import AttentionLayer
 import numpy as np
 import pandas as pd
@@ -22,6 +23,7 @@ from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 #%%
 from src.utils_dl_proj.utils_ import *
+from src.beam_search import *
 # import warnings
 # warnings.filterwarnings("ignore")
 
@@ -32,15 +34,31 @@ for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, True)
 
 #%%
-data_train = pd.read_csv('./data/train.csv', usecols=['summary', 'fullText'])
-data_test = pd.read_csv('./data/test.csv', usecols=['summary', 'fullText'])
-data_val = pd.read_csv('./data/valid.csv', usecols=['summary', 'fullText'])
+# data_train = pd.read_csv('./data/train.csv', usecols=['summary', 'fullText'])
+# data_test = pd.read_csv('./data/test.csv', usecols=['summary', 'fullText'])
+# data_val = pd.read_csv('./data/valid.csv', usecols=['summary', 'fullText'])
+# #%%
+# data_train = del_short_summary(data_train, 'summary')
+# data_test = del_short_summary(data_test, 'summary')
+# data_val = del_short_summary(data_val, 'summary')
+
+# data_train = pd.concat([data_train, data_val])
+
 #%%
-data_train = del_short_summary(data_train, 'summary')
-data_test = del_short_summary(data_test, 'summary')
-data_val = del_short_summary(data_val, 'summary')
+# BERT DATA
+data_train = pd.read_csv('./data/bert_train.csv', usecols=['predict', 'gold'])
+data_test = pd.read_csv('./data/bert_test.csv', usecols=['predict', 'gold'])
+data_val = pd.read_csv('./data/bert_valid.csv', usecols=['predict', 'gold'])
+#%%
+data_train = del_short_summary(data_train, 'gold')
+data_test = del_short_summary(data_test, 'gold')
+data_val = del_short_summary(data_val, 'gold')
 
 data_train = pd.concat([data_train, data_val])
+
+data_train = data_train.rename(columns = {'predict':'fullText', 'gold':'summary'})
+data_test = data_test.rename(columns = {'predict':'fullText', 'gold':'summary'})
+
 #%%
 # Text cleaning both full text and summary
 data_train_ = frame_clean(data_train, 'fullText', 'summary')
@@ -115,14 +133,11 @@ y_raw = y_tr.copy() # Make a copy to check later by string
 y_tokenizer = Tokenizer(filters = token_filter)   
 y_tokenizer.fit_on_texts(list(y_tr))
 
-
-# # Rarewords and its Coverage
 #%%
+# Rarewords and its Coverage
 y_count, y_totalCount, y_freq, y_totalFreq = rare_words_cover(y_tokenizer, threshold = 3)
 
-# In[37]:
-
-
+#%%
 #prepare a tokenizer for reviews on training data
 y_tokenizer = Tokenizer(num_words=y_totalCount-y_count, filters = token_filter) 
 y_tokenizer.fit_on_texts(list(y_tr))
@@ -140,7 +155,7 @@ y_voc  =   y_tokenizer.num_words +1
 
 #%%
 # Let us check whether word count of start token is equal to length of the training data
-y_tokenizer.word_counts['sossonnm'], len(y_tr) 
+assert y_tokenizer.word_counts['sossonnm'], len(y_tr) 
 
 #%%
 # Here, I am deleting the rows that contain only **START** and **END** tokens
@@ -150,22 +165,7 @@ y_tr, x_tr = del_if_markOnly(y_tr, x_tr)
 y_val, x_val = del_if_markOnly(y_val, x_val)
 
 #%%
-# # Model building
-# 
-# We are finally at the model building part. But before we do that, we need to familiarize ourselves with a few terms which are required prior to building the model.
-# 
-# **Return Sequences = True**: When the return sequences parameter is set to True, LSTM produces the hidden state and cell state for every timestep
-# 
-# **Return State = True**: When return state = True, LSTM produces the hidden state and cell state of the last timestep only
-# 
-# **Initial State**: This is used to initialize the internal states of the LSTM for the first timestep
-# 
-# **Stacked LSTM**: Stacked LSTM has multiple layers of LSTM stacked on top of each other. 
-# This leads to a better representation of the sequence. I encourage you to experiment with the multiple layers of the LSTM stacked on top of each other (it’s a great way to learn this)
-# 
-# Here, we are building a 3 stacked LSTM for the encoder:
-
-
+# Model building
 K.clear_session()
 
 latent_dim = 340
@@ -185,17 +185,35 @@ encoder_output1, state_h1_f, state_c1_f, state_h1_b, state_c1_b = encoder_lstm1(
 
 #encoder lstm 2
 encoder_lstm2 = Bidirectional(LSTM(latent_dim,return_sequences=True,
-                                   return_state=True,dropout=0.4,recurrent_dropout=0))
-encoder_output2, state_h2_f, state_c2_f, state_h2_b, state_c2_b = encoder_lstm2(encoder_output1)
+                                    return_state=True,dropout=0.4,recurrent_dropout=0))
+encoder_outputs, state_h_f, state_c_f, state_h_b, state_c_b = encoder_lstm2(encoder_output1)
 
-#encoder lstm 3
-encoder_lstm3 = Bidirectional(LSTM(latent_dim,return_sequences=True,
-                                   return_state=True,dropout=0.4,recurrent_dropout=0))
-encoder_outputs, state_h_f, state_c_f, state_h_b, state_c_b = encoder_lstm3(encoder_output2)
+# #encoder lstm 3
+# encoder_lstm3 = Bidirectional(LSTM(latent_dim,return_sequences=True,
+#                                     return_state=True,dropout=0.4,recurrent_dropout=0))
+# encoder_outputs, state_h_f, state_c_f, state_h_b, state_c_b = encoder_lstm3(encoder_output2)
+
+# #encoder lstm 1
+# encoder_lstm1 = LSTM(latent_dim,return_sequences=True,
+#                                     return_state=True,dropout=0.4,recurrent_dropout=0)
+
+# encoder_output1, state_h1_f, state_c1_f = encoder_lstm1(enc_emb)
+
+# #encoder lstm 2
+# encoder_lstm2 = LSTM(latent_dim,return_sequences=True,
+#                                    return_state=True,dropout=0.4,recurrent_dropout=0)
+# encoder_output2, state_h2_f, state_c2_f = encoder_lstm2(encoder_output1)
+
+# #encoder lstm 3
+# encoder_lstm3 = LSTM(latent_dim,return_sequences=True,
+#                                    return_state=True,dropout=0.4,recurrent_dropout=0)
+
+# encoder_outputs, state_h_f, state_c_f = encoder_lstm3(encoder_output2)
 
 state_h = Concatenate()([state_h_f, state_h_b])
 state_c = Concatenate()([state_c_f, state_c_b])
 encoder_states = [state_h, state_c]
+# encoder_states = [state_h_f, state_c_f]
 
 # Set up the decoder, using `encoder_states` as initial state.
 decoder_inputs = Input(shape=(None,))
@@ -205,7 +223,9 @@ dec_emb_layer = Embedding(y_voc, embedding_dim, trainable=True)
 dec_emb = dec_emb_layer(decoder_inputs)
 
 decoder_lstm = LSTM(latent_dim*2,return_sequences=True,
-                                   return_state=True,dropout=0.4,recurrent_dropout=0)
+                                    return_state=True,dropout=0.4,recurrent_dropout=0)
+# decoder_lstm = LSTM(latent_dim,return_sequences=True,
+#                                    return_state=True,dropout=0.4,recurrent_dropout=0)
 
 decoder_outputs, decoder_fwd_state, decoder_back_state = decoder_lstm(dec_emb, initial_state = encoder_states)
 
@@ -233,35 +253,18 @@ es = EarlyStopping(monitor='val_loss', mode='min', verbose=1,patience=2)
 history=model.fit([x_tr,y_tr[:,:-1]], 
                   y_tr.reshape(y_tr.shape[0],
                                y_tr.shape[1], 1)[:,1:],
-                  epochs=20,
+                  epochs=10,
                   callbacks=[es],
                   batch_size=4, 
                   validation_data=([x_val,y_val[:,:-1]], 
                                    y_val.reshape(y_val.shape[0],
                                                  y_val.shape[1], 1)[:,1:]))
 
-
+#%%
 # # Understanding the Diagnostic plot
-# 
-# Now, we will plot a few diagnostic plots to understand the behavior of the model over time:
+loss_curve(history)
 
-# In[ ]:
-
-
-from matplotlib import pyplot
-pyplot.plot(history.history['loss'], label='train')
-pyplot.plot(history.history['val_loss'], label='test')
-pyplot.legend()
-pyplot.savefig('loss_curve.png')
-
-
-# From the plot, we can infer that validation loss has increased after epoch 17 for 2 successive epochs. Hence, training is stopped at epoch 19.
-# 
-# Next, let’s build the dictionary to convert the index to word for target and source vocabulary:
-
-# In[ ]:
-
-
+#%%
 reverse_target_word_index=y_tokenizer.index_word
 reverse_source_word_index=x_tokenizer.index_word
 target_word_index=y_tokenizer.word_index
@@ -271,20 +274,29 @@ target_word_index=y_tokenizer.word_index
 # 
 # Set up the inference for the encoder and decoder:
 
-# In[ ]:
-
+#%%
 
 # Encode the input sequence to get the feature vector
-encoder_model = Model(inputs=encoder_inputs,outputs=[encoder_outputs, state_h, state_c])
+encoder_model = Model(inputs=encoder_inputs,outputs=[encoder_outputs, state_h_f, state_c_f,
+                                                     state_h_b, state_c_b])
 
+# encoder_model = Model(inputs=encoder_inputs,outputs=[encoder_outputs, state_h_f, state_c_f])
+
+#%%
 # Decoder setup
+# 3 layers input below have the same shape as the out put of encoder layer right above 
 # Below tensors will hold the states of the previous time step
-decoder_state_input_h = Input(shape=(latent_dim,))
-decoder_state_input_c = Input(shape=(latent_dim,))
-decoder_hidden_state_input = Input(shape=(max_text_len, latent_dim))
+
+decoder_state_input_h = Input(shape=(latent_dim*2,))
+decoder_state_input_c = Input(shape=(latent_dim*2,))
+decoder_hidden_state_input = Input(shape=(MAX_TEXT_LENGTH, latent_dim*2))
+
+# decoder_state_input_h = Input(shape=(latent_dim,))
+# decoder_state_input_c = Input(shape=(latent_dim,))
+# decoder_hidden_state_input = Input(shape=(MAX_TEXT_LENGTH, latent_dim))
 
 # Get the embeddings of the decoder sequence
-dec_emb2= dec_emb_layer(decoder_inputs) 
+dec_emb2 = dec_emb_layer(decoder_inputs) 
 # To predict the next word in the sequence, set the initial states to the states from the previous time step
 decoder_outputs2, state_h2, state_c2 = decoder_lstm(dec_emb2, initial_state=[decoder_state_input_h, decoder_state_input_c])
 
@@ -297,24 +309,25 @@ decoder_outputs2 = decoder_dense(decoder_inf_concat)
 
 # Final decoder model
 decoder_model = Model(
-    [decoder_inputs] + [decoder_hidden_state_input,decoder_state_input_h, decoder_state_input_c],
+    [decoder_inputs] + [decoder_hidden_state_input, decoder_state_input_h, decoder_state_input_c],
     [decoder_outputs2] + [state_h2, state_c2])
 
 
 # We are defining a function below which is the implementation of the inference process (which we covered [here](https://www.analyticsvidhya.com/blog/2019/06/comprehensive-guide-text-summarization-using-deep-learning-python/)):
 
-# In[ ]:
-
-
+#%%       
 def decode_sequence(input_seq):
     # Encode the input as state vectors.
-    e_out, e_h, e_c = encoder_model.predict(input_seq)
+    e_out, e_h_f, e_c_f, e_h_b, e_c_b = encoder_model.predict(input_seq)
+    
+    e_h = Concatenate()([e_h_f, e_h_b])
+    e_c = Concatenate()([e_c_f, e_c_b])
     
     # Generate empty target sequence of length 1.
     target_seq = np.zeros((1,1))
     
     # Populate the first word of target sequence with the start word.
-    target_seq[0, 0] = target_word_index['sostok']
+    target_seq[0, 0] = target_word_index['sossonnm']
 
     stop_condition = False
     decoded_sentence = ''
@@ -324,13 +337,15 @@ def decode_sequence(input_seq):
 
         # Sample a token
         sampled_token_index = np.argmax(output_tokens[0, -1, :])
+        if sampled_token_index == 0:
+            sampled_token_index = np.argsort(output_tokens[0, -1, :])[-2]
         sampled_token = reverse_target_word_index[sampled_token_index]
         
-        if(sampled_token!='eostok'):
+        if(sampled_token!='eossonnm'):
             decoded_sentence += ' '+sampled_token
 
         # Exit condition: either hit max length or find stop word.
-        if (sampled_token == 'eostok'  or len(decoded_sentence.split()) >= (max_summary_len-1)):
+        if (sampled_token == 'eosonnm'  or len(decoded_sentence.split()) >= (MAX_SUMMARY_LENGTH-1)):
             stop_condition = True
 
         # Update the target sequence (of length 1).
@@ -343,16 +358,16 @@ def decode_sequence(input_seq):
     return decoded_sentence
 
 
-# Let us define the functions to convert an integer sequence to a word sequence 
+# define the functions to convert an integer sequence to a word sequence 
 # for summary as well as the reviews:
 
-# In[ ]:
+#%%
 
 
 def seq2summary(input_seq):
     newString=''
     for i in input_seq:
-        if((i!=0 and i!=target_word_index['sostok']) and i!=target_word_index['eostok']):
+        if((i!=0 and i!=target_word_index['sossonnm']) and i!=target_word_index['eossonnm']):
             newString=newString+reverse_target_word_index[i]+' '
     return newString
 
@@ -364,9 +379,8 @@ def seq2text(input_seq):
     return newString
 
 
-# Here are a few summaries generated by the model:
-
-# In[ ]:
+# summaries generated by the model:
+#%%
 
 full_text = []
 origin_sum = []
@@ -376,8 +390,8 @@ for i in range(0,100):
     full_text.append(seq2text(x_tr[i]))
     print("Original summary:",y_raw[i])
     origin_sum.append(seq2summary(y_tr[i]))
-    print("Predicted summary:",decode_sequence(x_tr[i].reshape(1,max_text_len)))
-    machine_sum.append(decode_sequence(x_tr[i].reshape(1,max_text_len)))
+    print("Predicted summary:",decode_sequence(x_tr[i].reshape(1,MAX_TEXT_LENGTH)))
+    machine_sum.append(decode_sequence(x_tr[i].reshape(1,MAX_TEXT_LENGTH)))
     print("\n")
 
 result = pd.DataFrame({'fullText': full_text, 
@@ -385,3 +399,6 @@ result = pd.DataFrame({'fullText': full_text,
                        'machineSum': machine_sum})
 result['originSum'] = result['originSum'].apply(lambda x :  x.replace(' eostok','').replace('sostok ', ''))
 result.to_csv('./data/predict_0.csv')
+
+
+K.clear_session()

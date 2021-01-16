@@ -8,6 +8,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+def loss_curve(history):
+    plt.plot(history.history['loss'], label='train')
+    plt.plot(history.history['val_loss'], label='test')
+    plt.legend()
+    plt.savefig('loss_curve.png')
+    return
+
 def del_short_summary(df_raw, summary_col, threshold = 3):
     """
     Delete short summary under number of words
@@ -87,21 +94,23 @@ def text_cleaner(text):
         DESCRIPTION. cleaned corpus
 
     """
-    newString = text.lower()
-    newString = newString.replace('(', ' ').replace(')',' ').replace('.', ' ').replace(',', ' ')
+    newString = text.replace('(', ' ').replace(')',' ').replace('.', ' ').replace(',', ' ')
     newString = newString.replace('/', ' ').replace('%', ' ').replace(';', ' ').replace('’', ' ')
     newString = newString.replace('“', ' ').replace('”', ' ').replace('"', ' ').replace("'", ' ')
+    try:
+        newString = newString.lower()
+    except:
+        print("Check for lower the string, maybe it just a number")
     return newString
 
 def frame_clean(df, text_col, summary_col):
     cleaned_text = []
-    for t in df[text_col]:
-        cleaned_text.append(text_cleaner(t))
-
     cleaned_summary = []
-    for t in df[summary_col]:
-        cleaned_summary.append(text_cleaner(t))
-        
+    for i, r in df.iterrows():
+        print('Cleaning row ', i)
+        cleaned_text.append(text_cleaner(r[text_col]))
+        cleaned_summary.append(text_cleaner(r[summary_col]))
+
     data_cleaned = pd.DataFrame()
     data_cleaned['cleaned_text'] = cleaned_text
     data_cleaned['cleaned_summary'] = cleaned_summary
@@ -215,21 +224,21 @@ def rare_words_cover(factor_tokenized, threshold = 4):
         DESCRIPTION. Total of appearance. This is the sum up 
 
     """
-    cnt=0
-    tot_cnt=0
+    count=0
+    total_count=0
     freq=0
-    tot_freq=0
+    total_freq=0
     
     for key,value in factor_tokenized.word_counts.items():
-        tot_cnt=tot_cnt+1 # count all
-        tot_freq=tot_freq+value
+        total_count=total_count + 1 # count all
+        total_freq=total_freq + value
         if(value < threshold):
-            cnt=cnt+1 # count rare
-            freq=freq+value
+            count = count + 1 # count rare
+            freq = freq + value
         
-    print("% of rare words in vocabulary:",(cnt/tot_cnt)*100)
-    print("Total Coverage of rare words:",(freq/tot_freq)*100)
-    return cnt, tot_cnt, freq, tot_freq
+    print("% of rare words in vocabulary:",(count/total_count)*100)
+    print("Total Coverage of rare words:",(freq/total_freq)*100)
+    return count, total_count, freq, total_freq
 
 def del_if_markOnly(seq_matrix_target, seq_matrix_features):
     """
