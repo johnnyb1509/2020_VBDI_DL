@@ -1,0 +1,3 @@
+We borrowed source code from Yang Liu to re-build our model for Vietnamese Extractive summary:
+https://github.com/nlpyang/BertSum
+The code is used in his paper "Fine-tune BERT for Extractive Summarization"(https://arxiv.org/pdf/1903.10318.pdf)
