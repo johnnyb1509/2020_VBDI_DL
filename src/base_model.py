@@ -10,7 +10,7 @@ from tensorflow.keras.layers import Input, LSTM, Bidirectional, Concatenate, \
 from tensorflow.keras.models import Model
 from src.attention import AttentionLayer
 
-def base_model_0(x_vocab_size, y_vocab_size, latent_dim, embedding_dim, max_text_length, is_save = False):
+def base_model_LSTM(x_vocab_size, y_vocab_size, latent_dim, embedding_dim, max_text_length, is_save = False):
     """
     Model with 3 layers LSTM in encoder 
 
@@ -134,7 +134,7 @@ def base_model_0(x_vocab_size, y_vocab_size, latent_dim, embedding_dim, max_text
     return full_model, encoder_model, decoder_model
 
 
-def base_model_1(x_vocab_size, y_vocab_size, latent_dim, embedding_dim, max_text_length, is_save = False):
+def base_model_Mix(x_vocab_size, y_vocab_size, latent_dim, embedding_dim, max_text_length, is_save = False):
     """
     Model with 1 layers BiLSTM + 1 layers LSTM in encoder 
 
@@ -251,7 +251,7 @@ def base_model_1(x_vocab_size, y_vocab_size, latent_dim, embedding_dim, max_text
     
     return full_model, encoder_model, decoder_model
 
-def base_model_2(x_vocab_size, y_vocab_size, latent_dim, embedding_dim, max_text_length, is_save = False):
+def base_model_BiLSTM(x_vocab_size, y_vocab_size, latent_dim, embedding_dim, max_text_length, is_save = False):
     """
     Model with 3 layers BiLSTM in encoder 
 

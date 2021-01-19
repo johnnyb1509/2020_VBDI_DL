@@ -81,11 +81,11 @@ y_validate, x_validate = del_if_markOnly(y_validate, x_validate)
 
 # Model building
 
-full_model, encoder_model, decoder_model = base_model_2(x_voc, y_voc, 
-                                                        latent_dim, 
-                                                        embedding_dim, 
-                                                        MAX_TEXT_LENGTH,
-                                                        is_save = False)
+full_model, encoder_model, decoder_model = base_model_LSTM(x_voc, y_voc, 
+                                                            latent_dim, 
+                                                            embedding_dim, 
+                                                            MAX_TEXT_LENGTH,
+                                                            is_save = False)
 
 full_model.compile(optimizer='rmsprop', loss='sparse_categorical_crossentropy')
 es = EarlyStopping(monitor='val_loss', mode='min', verbose=1,patience=2)
