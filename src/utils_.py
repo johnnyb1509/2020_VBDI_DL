@@ -1,12 +1,44 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Jan 14 09:33:47 2021
 
-@author: sonnm12
-"""
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from keras.preprocessing.text import Tokenizer 
+from keras.preprocessing.sequence import pad_sequences
+
+def data_reader(data_dir, column_text, column_summary, max_text_length, max_summary_length):
+    """
+    Reading - Cleaning - Filtering - Marking data
+
+    Parameters
+    ----------
+    data_dir : TYPE string
+        DESCRIPTION. Address of data directory
+    column_text, column_summary : TYPE string
+        DESCRIPTION. columns name using in the process 
+    max_text_length : TYPE int 
+        DESCRIPTION. desired maximum words in the text
+    max_summary_length : TYPE int
+        DESCRIPTION. desired maximum words in the summary
+
+    Returns
+    -------
+    x_data : TYPE array
+        DESCRIPTION. array of Full text data
+    y_data : TYPE array
+        DESCRIPTION. array of summary data
+
+    """
+   
+    data_ = pd.read_csv(data_dir, usecols=[column_text, column_summary]) #Read data
+    data_ = del_short_summary(data_, column_summary) # delete short summary (lower than 3 words)
+    data_ = frame_clean(data_, column_text, column_summary) # cleaning frame
+    data_ = filter_data_length(data_, 'cleaned_text', 'cleaned_summary', 
+                               max_text_length, max_summary_length) #Filter data on desired length
+    data_ = mark_sentence(data_, 'cleaned_summary') # marking <sos> and <eos>
+    
+    x_data = np.array(data_['cleaned_text'])
+    y_data = np.array(data_['cleaned_summary'])
+    return x_data, y_data
 
 def loss_curve(history):
     plt.plot(history.history['loss'], label='train')
@@ -271,3 +303,56 @@ def del_if_markOnly(seq_matrix_target, seq_matrix_features):
     seq_matrix_target = np.delete(seq_matrix_target, idx, axis=0)
     seq_matrix_features = np.delete(seq_matrix_features, idx, axis=0)
     return seq_matrix_target, seq_matrix_features
+
+def tokenizer(train, validate, max_text_length, threshold = 4):
+    """
+    Tokenizing the given dataset
+
+    Parameters
+    ----------
+    train : TYPE array
+        DESCRIPTION. train dataset
+    validate : TYPE array
+        DESCRIPTION. validate dataset
+    max_text_length : TYPE int
+        DESCRIPTION. defined maximum text length (counting number of words in corpus)
+    threshold : TYPE int, optional
+        DESCRIPTION. the numbers of appearance of words 
+                    Defining for how much frequency is count to rare. The default is 4.
+
+    Returns
+    -------
+    train : TYPE object
+        DESCRIPTION. tokenized data train
+    validate : TYPE object
+        DESCRIPTION. tokenized data validate
+    vocab_size : TYPE int
+        DESCRIPTION. size of the vocabulary of the dataset
+    tokenizer : TYPE object
+        DESCRIPTION. the tokenizer object
+
+    """
+    token_filter = '! "# $% & () * +, -. / : ; <=>? @ [] ^` {|} ~ “ ” ‘ ’'
+
+    tokenizer = Tokenizer(filters = token_filter) 
+    tokenizer.fit_on_texts(list(train))
+
+    # # Rarewords and its Coverage
+    count_, totalCount, freq, totalFreq = rare_words_cover(tokenizer, threshold = 4)
+    
+
+    tokenizer = Tokenizer(num_words = totalCount - count_, 
+                            filters = token_filter) 
+    tokenizer.fit_on_texts(list(train))
+    
+    #convert text sequences into integer sequences
+    tr_seq = tokenizer.texts_to_sequences(train) 
+    val_seq = tokenizer.texts_to_sequences(validate)
+    
+    #padding zero upto maximum length
+    train = pad_sequences(tr_seq,  maxlen = max_text_length, padding='post')
+    validate = pad_sequences(val_seq, maxlen = max_text_length, padding='post')
+    
+    #size of vocabulary ( +1 for padding token)
+    vocab_size = tokenizer.num_words + 1
+    return train, validate, vocab_size, tokenizer
