@@ -23,8 +23,8 @@ VinBigData_Deeplearning
     - requirement.txt
 ```
 ### Data
-- Data used in this project is re-format and uploaded from the MediaFire link:
-https://www.mediafire.com/file/ikhwaqjaixsb0qf/data_base_model.rar/file
+Data used in this project is re-format and uploaded from the MediaFire link:
+- Link: https://www.mediafire.com/file/ikhwaqjaixsb0qf/data_base_model.rar/file
 
 In which, the raw data is the Vietnamese Benchmark Data VNDS:
 - DOI: 10.1109/NICS48868.2019.9023886
