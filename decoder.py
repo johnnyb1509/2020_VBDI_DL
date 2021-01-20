@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from keras import backend as K
 import tensorflow as tf
@@ -20,15 +20,10 @@ from src.utils_ import *
 from src.base_model import *
 from src.attention import AttentionLayer
 from src.inference_summary import *
+from src.rouge_score import *
 
 import warnings
 warnings.filterwarnings("ignore")
-
-'''GPU Growth = True'''
-gpus = tf.config.experimental.list_physical_devices('GPU')
-for gpu in gpus:
-    tf.config.experimental.set_memory_growth(gpu, True)
-
 
 MAX_TEXT_LENGTH = 200
 MAX_SUMMARY_LENGTH = 14
@@ -101,7 +96,9 @@ result = pd.DataFrame({'fullText': full_text,
                        'machineSum': machine_sum})
 
 result['originSum'] = result['originSum'].apply(lambda x :  x.replace(' eossonnm','').replace('sossonnm ', ''))
-# result.to_csv('./data/predict_google_mimic.csv')
+# result.to_csv('./data/predict_google_mimic.csv') # un_comment if need to save file
+
+# Scoring model
 print('Scoring')
 rouge_score = rouge_scoring(result, 'originSum', 'machineSum')
 end_time = datetime.now()

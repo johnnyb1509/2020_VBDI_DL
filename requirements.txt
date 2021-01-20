@@ -1,1 +1,8 @@
 rouge-score
+numpy
+pandas
+tensorflow
+nltk
+pickle
+json
+seaborn
