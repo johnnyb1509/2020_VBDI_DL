@@ -12,7 +12,7 @@ VinBigData_Deeplearning
     - src\
         - attention.py              # Attention module
         - base_model.py             # Include 3 base models
-        - beam_search.py            # Beam search self-created (still in testing stage)
+        - beam_search.py            # Self-created Beam search  (still in testing stage)
         - inference_summary.py      # Function to rewrite the summary from full text
         - rouge_score.py            # Rouge score
         - utils_.py                 # other functions needed for project
@@ -22,4 +22,7 @@ VinBigData_Deeplearning
     - evaluate.ipynb                # visualize the rouge score of result
     - requirement.txt
 ```
+### Data
+- Data can be use from this MediaFire link:
+https://www.mediafire.com/file/ikhwaqjaixsb0qf/data_base_model.rar/file
 
