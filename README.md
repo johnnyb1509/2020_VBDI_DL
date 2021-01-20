@@ -23,6 +23,20 @@ VinBigData_Deeplearning
     - requirement.txt
 ```
 ### Data
-- Data can be use from this MediaFire link:
+- Data used in this project is re-format and uploaded from the MediaFire link:
 https://www.mediafire.com/file/ikhwaqjaixsb0qf/data_base_model.rar/file
+
+In which, the raw data is the Vietnamese Benchmark Data VNDS:
+- DOI: 10.1109/NICS48868.2019.9023886
+- Github: https://github.com/ThanhChinhBK/vietnews
+
+### Referrence SOTA models used in this project
+#### FastAbs 
+We borrowed source code from Yen-Chun Chen, Mohit Bansal to re-train:
+- Link: https://github.com/ChenRocks/fast_abs_rl
+The code is used in his paper "Fast Abstractive Summarization with Reinforce-Selected Sentence Rewriting"(https://arxiv.org/abs/1805.11080)
+#### BERTSUM 
+We borrowed source code from Yang Liu to re-build our model for Vietnamese Extractive summary:
+- Link: https://github.com/nlpyang/BertSum
+The code is used in his paper "Fine-tune BERT for Extractive Summarization"(https://arxiv.org/pdf/1903.10318.pdf)
 
